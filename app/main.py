@@ -1,5 +1,12 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel, Field
+from app.database import Base, engine, get_db
+from app import models
+from sqlalchemy.orm import Session
+from app.models import Transaction
+from decimal import Decimal
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="FinAssist AI",
@@ -9,10 +16,8 @@ app = FastAPI(
 
 class TransactionCreate(BaseModel):
     description: str = Field(min_length=1, max_length=200)
-    amount: float = Field(gt=0)
+    amount: Decimal = Field(gt=0)
     category: str = Field(min_length=1, max_length=50)
-
-transactions = []
 
 @app.get("/")
 def root():
@@ -22,26 +27,40 @@ def root():
     }
 
 @app.post("/transactions", status_code=201)
-def create_transaction(transaction: TransactionCreate):
-    new_transaction = {
-        "id": len(transactions) + 1,
-        "description": transaction.description,
-        "amount": transaction.amount,
-        "category": transaction.category
-    }
+def create_transaction(
+    transaction: TransactionCreate,
+    db: Session = Depends(get_db)
+):
+    new_transaction = Transaction(
+        description=transaction.description,
+        amount=transaction.amount,
+        category=transaction.category
+    )
 
-    transactions.append(new_transaction)
+    db.add(new_transaction)
+    db.commit()
+    db.refresh(new_transaction)
+
     return new_transaction
 
 @app.get("/transactions")
-def get_transactions():
-    return transactions
+def get_transactions(db: Session = Depends(get_db)):
+    return db.query(Transaction).all()
 
 @app.get("/transactions/{transaction_id}")
-def get_transaction(transaction_id: int):
-    for transaction in transactions:
-        if transaction["id"] == transaction_id:
-            return transaction
+def get_transaction(
+    transaction_id: int,
+    db: Session = Depends(get_db)
+):
+    transaction = db.get(Transaction, transaction_id)
+
+    if transaction is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Transaction not found"
+        )
+
+    return transaction
 
     raise HTTPException(
     status_code=404,
@@ -51,32 +70,40 @@ def get_transaction(transaction_id: int):
 @app.put("/transactions/{transaction_id}")
 def update_transaction(
     transaction_id: int,
-    updated_transaction: TransactionCreate
+    updated_transaction: TransactionCreate,
+    db: Session = Depends(get_db)
 ):
-    for transaction in transactions:
-        if transaction["id"] == transaction_id:
-            transaction["description"] = updated_transaction.description
-            transaction["amount"] = updated_transaction.amount
-            transaction["category"] = updated_transaction.category
+    transaction = db.get(Transaction, transaction_id)
 
-            return transaction
+    if transaction is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Transaction not found"
+        )
 
-    raise HTTPException(
-        status_code=404,
-        detail="Transaction not found"
-    )
+    transaction.description = updated_transaction.description
+    transaction.amount = updated_transaction.amount
+    transaction.category = updated_transaction.category
+
+    db.commit()
+    db.refresh(transaction)
+
+    return transaction
 
 @app.delete("/transactions/{transaction_id}")
-def delete_transaction(transaction_id: int):
-    for transaction in transactions:
-        if transaction["id"] == transaction_id:
-            transactions.remove(transaction)
+def delete_transaction(
+    transaction_id: int,
+    db: Session = Depends(get_db)
+):
+    transaction = db.get(Transaction, transaction_id)
 
-            return {
-                "message": "Transaction deleted successfully"
-            }
+    if transaction is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Transaction not found"
+        )
 
-    raise HTTPException(
-        status_code=404,
-        detail="Transaction not found"
-    )
+    db.delete(transaction)
+    db.commit()
+
+    return {"message": "Transaction deleted successfully"}
