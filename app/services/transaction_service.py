@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.repositories import transaction_repository
+from app.repositories import transaction_repository, user_repository
 
 
 def get_all_transactions(db: Session):
@@ -25,10 +25,10 @@ def create_transaction(
     user_id: int
 ):
     # Check whether the user exists
-    user = transaction_repository.get_user_by_id(
-        db,
-        user_id
-    )
+    user = user_repository.get_user_by_id(
+    db,
+    user_id
+)
 
     if user is None:
         return None
@@ -52,10 +52,10 @@ def update_transaction(
     user_id: int
 ):
     # Check whether the transaction exists
-    transaction = transaction_repository.get_transaction_by_id(
-        db,
-        transaction_id
-    )
+    user = user_repository.get_user_by_id(
+    db,
+    user_id
+)
 
     if transaction is None:
         return None, "transaction_not_found"

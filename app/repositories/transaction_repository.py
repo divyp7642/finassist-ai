@@ -1,11 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.models import Transaction, User
-
-
-def get_user_by_id(db: Session, user_id: int):
-    return db.get(User, user_id)
-
+from app.models import Transaction
 
 def get_all_transactions(db: Session):
     return db.query(Transaction).all()
