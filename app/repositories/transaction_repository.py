@@ -5,6 +5,12 @@ from app.models import Transaction
 def get_all_transactions(db: Session):
     return db.query(Transaction).all()
 
+def get_transactions_by_user_id(db: Session, user_id: int):
+    return (
+        db.query(Transaction)
+        .filter(Transaction.user_id == user_id)
+        .all()
+    )
 
 def get_transaction_by_id(db: Session, transaction_id: int):
     return db.get(Transaction, transaction_id)

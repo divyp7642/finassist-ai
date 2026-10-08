@@ -13,3 +13,9 @@ class TransactionCreate(BaseModel):
     amount: Decimal = Field(gt=0)
     category: str = Field(min_length=1, max_length=50)
     user_id: int = Field(gt=0)
+
+class SpendingAnalysis(BaseModel):
+    summary: str
+    top_category: str
+    insights: list[str]
+    recommendation: str
