@@ -1,7 +1,13 @@
+
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.encoders import jsonable_encoder
+from redis.exceptions import RedisError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.redis_client import redis_client
 from app.schemas import TransactionCreate
 from app.services import transaction_service
 
@@ -12,11 +18,41 @@ router = APIRouter(
 )
 
 
+# GET ALL TRANSACTIONS
 @router.get("")
 def get_transactions(db: Session = Depends(get_db)):
-    return transaction_service.get_all_transactions(db)
+
+    # Step 1: Try fetching transactions from Redis
+    try:
+        cached_data = redis_client.get("transactions:all")
+
+        if cached_data is not None:
+            return json.loads(cached_data)
+
+    except (RedisError, ValueError):
+        print("Redis cache unavailable. Using PostgreSQL.")
+
+    # Step 2: Fetch transactions from PostgreSQL
+    transactions = transaction_service.get_all_transactions(db)
+
+    # Step 3: Convert transactions to JSON-compatible data
+    transaction_data = jsonable_encoder(transactions)
+
+    # Step 4: Try caching the result for 60 seconds
+    try:
+        redis_client.setex(
+            "transactions:all",
+            60,
+            json.dumps(transaction_data)
+        )
+
+    except RedisError:
+        print("Redis cache write failed. Continuing without cache.")
+
+    return transaction_data
 
 
+# CREATE TRANSACTION
 @router.post("", status_code=201)
 def create_transaction(
     transaction: TransactionCreate,
@@ -36,9 +72,17 @@ def create_transaction(
             detail="User not found"
         )
 
+    # Invalidate cache after successful creation
+    try:
+        redis_client.delete("transactions:all")
+
+    except RedisError:
+        print("Redis cache invalidation failed after creation.")
+
     return new_transaction
 
 
+# GET TRANSACTION BY ID
 @router.get("/{transaction_id}")
 def get_transaction(
     transaction_id: int,
@@ -58,6 +102,7 @@ def get_transaction(
     return transaction
 
 
+# UPDATE TRANSACTION
 @router.put("/{transaction_id}")
 def update_transaction(
     transaction_id: int,
@@ -85,9 +130,17 @@ def update_transaction(
             detail="User not found"
         )
 
+    # Invalidate cache after successful update
+    try:
+        redis_client.delete("transactions:all")
+
+    except RedisError:
+        print("Redis cache invalidation failed after update.")
+
     return transaction
 
 
+# DELETE TRANSACTION
 @router.delete("/{transaction_id}")
 def delete_transaction(
     transaction_id: int,
@@ -103,5 +156,12 @@ def delete_transaction(
             status_code=404,
             detail="Transaction not found"
         )
+
+    # Invalidate cache after successful deletion
+    try:
+        redis_client.delete("transactions:all")
+
+    except RedisError:
+        print("Redis cache invalidation failed after deletion.")
 
     return {"message": "Transaction deleted successfully"}
