@@ -10,6 +10,7 @@ from app.database import get_db
 from app.redis_client import redis_client
 from app.schemas import TransactionCreate
 from app.services import transaction_service
+from app.kafka_producer import publish_transaction_created
 
 
 router = APIRouter(
@@ -78,6 +79,19 @@ def create_transaction(
 
     except RedisError:
         print("Redis cache invalidation failed after creation.")
+
+    # Publish transaction event to Kafka
+    try:
+        publish_transaction_created({
+            "transaction_id": new_transaction.id,
+            "user_id": new_transaction.user_id,
+            "description": new_transaction.description,
+            "amount": float(new_transaction.amount),
+            "category": new_transaction.category
+        })
+
+    except Exception as e:
+        print(f"Kafka publishing failed: {e}")
 
     return new_transaction
 
