@@ -25,5 +25,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      
       - name: Run Pytest
+        env:
+          DATABASE_URL: sqlite:///./finassist_test.db
         run: python -m pytest tests/ -v
+
