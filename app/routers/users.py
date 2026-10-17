@@ -1,25 +1,54 @@
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas import UserCreate
+from app.dependencies import get_current_user_id
+from app.schemas import UserCreate, UserResponse
 from app.services import user_service
 
 
 router = APIRouter(
     prefix="/users",
-    tags=["Users"]
+    tags=["Users"],
+    dependencies=[Depends(get_current_user_id)]
 )
 
-@router.get("")
-def get_users(db: Session = Depends(get_db)):
-    return user_service.get_all_users(db)
 
-@router.get("/{user_id}")
+# GET CURRENT USER
+@router.get("", response_model=UserResponse)
+def get_users(
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
+):
+    user = user_service.get_user_by_id(
+        db,
+        current_user_id
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    return user
+
+
+# GET USER BY ID
+@router.get("/{user_id}", response_model=UserResponse)
 def get_user(
     user_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
 ):
+    # Verify profile ownership
+    if user_id != current_user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot access another user's profile"
+        )
+
     user = user_service.get_user_by_id(
         db,
         user_id
@@ -33,31 +62,22 @@ def get_user(
 
     return user
 
-@router.post("", status_code=201)
-def create_user(
-    user: UserCreate,
-    db: Session = Depends(get_db)
-):
-    new_user = user_service.create_user(
-        db=db,
-        name=user.name,
-        email=user.email
-    )
 
-    if new_user is None:
-        raise HTTPException(
-            status_code=409,
-            detail="Email already exists"
-        )
-
-    return new_user
-
-@router.put("/{user_id}")
+# UPDATE USER
+@router.put("/{user_id}", response_model=UserResponse)
 def update_user(
     user_id: int,
     updated_user: UserCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
 ):
+    # Verify profile ownership
+    if user_id != current_user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot update another user's profile"
+        )
+
     user, error = user_service.update_user(
         db=db,
         user_id=user_id,
@@ -79,11 +99,21 @@ def update_user(
 
     return user
 
+
+# DELETE USER
 @router.delete("/{user_id}")
 def delete_user(
     user_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id)
 ):
+    # Verify account ownership
+    if user_id != current_user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot delete another user's account"
+        )
+
     deleted = user_service.delete_user(
         db=db,
         user_id=user_id
@@ -95,4 +125,6 @@ def delete_user(
             detail="User not found"
         )
 
-    return {"message": "User deleted successfully"}
+    return {
+        "message": "User deleted successfully"
+    }

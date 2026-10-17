@@ -19,11 +19,13 @@ def get_user_by_email(
 def create_user(
     db: Session,
     name: str,
-    email: str
+    email: str,
+    password_hash: str | None = None
 ):
     new_user = User(
         name=name,
-        email=email
+        email=email,
+        password_hash=password_hash
     )
 
     db.add(new_user)
@@ -31,6 +33,7 @@ def create_user(
     db.refresh(new_user)
 
     return new_user
+
 
 def update_user(
     db: Session,

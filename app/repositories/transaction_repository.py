@@ -62,3 +62,11 @@ def delete_transaction(
 ):
     db.delete(transaction)
     db.commit()
+
+
+def get_transactions_by_user(db: Session, user_id: int):
+    return (
+        db.query(Transaction)
+        .filter(Transaction.user_id == user_id)
+        .all()
+    )

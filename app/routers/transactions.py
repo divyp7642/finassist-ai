@@ -11,6 +11,7 @@ from app.redis_client import redis_client
 from app.schemas import TransactionCreate
 from app.services import transaction_service
 from app.kafka_producer import publish_transaction_created
+from app.dependencies import get_current_user_id
 
 
 router = APIRouter(
@@ -21,11 +22,14 @@ router = APIRouter(
 
 # GET ALL TRANSACTIONS
 @router.get("")
-def get_transactions(db: Session = Depends(get_db)):
+def get_transactions(
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    cache_key = f"transactions:user:{user_id}"
 
-    # Step 1: Try fetching transactions from Redis
     try:
-        cached_data = redis_client.get("transactions:all")
+        cached_data = redis_client.get(cache_key)
 
         if cached_data is not None:
             return json.loads(cached_data)
@@ -33,16 +37,16 @@ def get_transactions(db: Session = Depends(get_db)):
     except (RedisError, ValueError):
         print("Redis cache unavailable. Using PostgreSQL.")
 
-    # Step 2: Fetch transactions from PostgreSQL
-    transactions = transaction_service.get_all_transactions(db)
+    transactions = transaction_service.get_transactions_by_user(
+        db=db,
+        user_id=user_id
+    )
 
-    # Step 3: Convert transactions to JSON-compatible data
     transaction_data = jsonable_encoder(transactions)
 
-    # Step 4: Try caching the result for 60 seconds
     try:
         redis_client.setex(
-            "transactions:all",
+            cache_key,
             60,
             json.dumps(transaction_data)
         )
@@ -57,8 +61,15 @@ def get_transactions(db: Session = Depends(get_db)):
 @router.post("", status_code=201)
 def create_transaction(
     transaction: TransactionCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
 ):
+    if transaction.user_id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot create transactions for another user"
+        )
+
     new_transaction = transaction_service.create_transaction(
         db=db,
         description=transaction.description,
@@ -73,9 +84,11 @@ def create_transaction(
             detail="User not found"
         )
 
-    # Invalidate cache after successful creation
+    # Invalidate Redis cache
     try:
-        redis_client.delete("transactions:all")
+        redis_client.delete(
+            f"transactions:user:{new_transaction.user_id}"
+        )
 
     except RedisError:
         print("Redis cache invalidation failed after creation.")
@@ -100,7 +113,8 @@ def create_transaction(
 @router.get("/{transaction_id}")
 def get_transaction(
     transaction_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
 ):
     transaction = transaction_service.get_transaction_by_id(
         db,
@@ -113,6 +127,12 @@ def get_transaction(
             detail="Transaction not found"
         )
 
+    if transaction.user_id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot access another user's transaction"
+        )
+
     return transaction
 
 
@@ -121,8 +141,38 @@ def get_transaction(
 def update_transaction(
     transaction_id: int,
     updated_transaction: TransactionCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
 ):
+    # Find existing transaction
+    existing_transaction = transaction_service.get_transaction_by_id(
+        db,
+        transaction_id
+    )
+
+    if existing_transaction is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Transaction not found"
+        )
+
+    # Verify transaction ownership
+    if existing_transaction.user_id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot update another user's transaction"
+        )
+
+    # Prevent ownership changes
+    if updated_transaction.user_id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot change transaction ownership"
+        )
+
+    old_user_id = existing_transaction.user_id
+
+    # Update transaction
     transaction, error = transaction_service.update_transaction(
         db=db,
         transaction_id=transaction_id,
@@ -144,9 +194,22 @@ def update_transaction(
             detail="User not found"
         )
 
-    # Invalidate cache after successful update
+    if transaction is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Transaction update failed"
+        )
+
+    # Invalidate Redis cache
     try:
-        redis_client.delete("transactions:all")
+        redis_client.delete(
+            f"transactions:user:{old_user_id}"
+        )
+
+        if transaction.user_id != old_user_id:
+            redis_client.delete(
+                f"transactions:user:{transaction.user_id}"
+            )
 
     except RedisError:
         print("Redis cache invalidation failed after update.")
@@ -158,8 +221,29 @@ def update_transaction(
 @router.delete("/{transaction_id}")
 def delete_transaction(
     transaction_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
 ):
+    # Find transaction
+    transaction = transaction_service.get_transaction_by_id(
+        db,
+        transaction_id
+    )
+
+    if transaction is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Transaction not found"
+        )
+
+    # Verify ownership
+    if transaction.user_id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot delete another user's transaction"
+        )
+
+    # Delete transaction
     deleted = transaction_service.delete_transaction(
         db=db,
         transaction_id=transaction_id
@@ -171,11 +255,15 @@ def delete_transaction(
             detail="Transaction not found"
         )
 
-    # Invalidate cache after successful deletion
+    # Invalidate Redis cache
     try:
-        redis_client.delete("transactions:all")
+        redis_client.delete(
+            f"transactions:user:{user_id}"
+        )
 
     except RedisError:
         print("Redis cache invalidation failed after deletion.")
 
-    return {"message": "Transaction deleted successfully"}
+    return {
+        "message": "Transaction deleted successfully"
+    }
