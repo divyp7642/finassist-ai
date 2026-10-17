@@ -103,3 +103,10 @@ def delete_transaction(
     )
 
     return True
+
+
+def get_transactions_by_user(db: Session, user_id: int):
+    return transaction_repository.get_transactions_by_user(
+        db=db,
+        user_id=user_id
+    )

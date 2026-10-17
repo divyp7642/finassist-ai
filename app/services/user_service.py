@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.repositories import user_repository
+from app.security import hash_password, verify_password
 
 def get_all_users(db: Session):
     return user_repository.get_all_users(db)
@@ -32,6 +33,54 @@ def create_user(
         name=name,
         email=email
     )
+
+
+def register_user(
+    db: Session,
+    name: str,
+    email: str,
+    password: str
+):
+    existing_user = user_repository.get_user_by_email(
+        db,
+        email
+    )
+
+    if existing_user is not None:
+        return None
+
+    hashed_password = hash_password(password)
+
+    return user_repository.create_user(
+        db=db,
+        name=name,
+        email=email,
+        password_hash=hashed_password
+    )
+
+def authenticate_user(
+    db: Session,
+    email: str,
+    password: str
+):
+    user = user_repository.get_user_by_email(
+        db,
+        email
+    )
+
+    if user is None:
+        return None
+
+    if user.password_hash is None:
+        return None
+
+    if not verify_password(
+        password,
+        user.password_hash
+    ):
+        return None
+
+    return user
 
 def update_user(
     db: Session,
