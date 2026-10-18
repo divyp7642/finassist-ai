@@ -1,10 +1,21 @@
 
 import json
-from confluent_kafka import Producer
+import os
 
-# Connect to Apache Kafka using IPv4
+from confluent_kafka import Producer
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
+
+# Connect to Apache Kafka
+# Windows default: 127.0.0.1:9092
+# Docker: host.docker.internal:9092
 producer = Producer({
-    "bootstrap.servers": "127.0.0.1:9092",
+    "bootstrap.servers": os.getenv(
+        "KAFKA_BOOTSTRAP_SERVERS",
+        "127.0.0.1:9092"
+    ),
     "broker.address.family": "v4"
 })
 

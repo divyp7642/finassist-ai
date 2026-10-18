@@ -1,0 +1,36 @@
+
+# Python virtual environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Git files
+.git/
+.gitignore
+.github/
+
+# Editor settings
+.vscode/
+.idea/
+
+# Local development files
+*.log
+.coverage
+htmlcov/
+
+# Documentation and tests
+tests/
+README.md
+
+# Docker Compose files
+docker-compose*.yml
+compose*.yaml

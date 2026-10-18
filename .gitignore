@@ -19,3 +19,6 @@ kafka-original-data/
 
 # Kafka local configuration
 kafka-original.properties
+
+# Local Kafka backup
+kafka-backup/

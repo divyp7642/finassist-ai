@@ -1,0 +1,31 @@
+services:
+  finassist-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: finassist-ai:latest
+
+    ports:
+      - "8001:8000"
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: ${DATABASE_URL_DOCKER}
+      REDIS_HOST: host.docker.internal
+      REDIS_PORT: "6379"
+      KAFKA_BOOTSTRAP_SERVERS: finassist-kafka-new:9094
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    networks:
+      - finassist-network
+
+    restart: unless-stopped
+
+networks:
+  finassist-network:
+    external: true
