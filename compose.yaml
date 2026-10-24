@@ -1,3 +1,4 @@
+
 services:
   finassist-api:
     build:
@@ -16,6 +17,33 @@ services:
       DATABASE_URL: ${DATABASE_URL_DOCKER}
       REDIS_HOST: host.docker.internal
       REDIS_PORT: "6379"
+      KAFKA_BOOTSTRAP_SERVERS: finassist-kafka-new:9094
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    networks:
+      - finassist-network
+
+    restart: unless-stopped
+
+  finassist-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: finassist-ai:latest
+
+    command:
+      - python
+      - -m
+      - app.kafka_consumer
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: ${DATABASE_URL_DOCKER}
       KAFKA_BOOTSTRAP_SERVERS: finassist-kafka-new:9094
 
     extra_hosts:

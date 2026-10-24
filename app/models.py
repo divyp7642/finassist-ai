@@ -1,7 +1,7 @@
 
 from decimal import Decimal
 
-from sqlalchemy import ForeignKey, Numeric, String
+from sqlalchemy import ForeignKey, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -60,4 +60,39 @@ class Transaction(Base):
 
     user: Mapped["User"] = relationship(
         back_populates="transactions"
+    )
+
+
+class SpendingSummary(Base):
+    __tablename__ = "spending_summaries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    category: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False
+    )
+
+    total_amount: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2),
+        nullable=False,
+        default=Decimal("0.00")
+    )
+
+    transaction_count: Mapped[int] = mapped_column(
+        nullable=False,
+        default=0
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "category",
+            name="uq_spending_summary_user_category"
+        ),
     )
