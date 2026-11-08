@@ -1,0 +1,44 @@
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: finassist-consumer
+
+spec:
+  replicas: 0
+
+  selector:
+    matchLabels:
+      app: finassist-consumer
+
+  template:
+    metadata:
+      labels:
+        app: finassist-consumer
+
+    spec:
+      containers:
+        - name: finassist-consumer
+          image: finassist-ai:latest
+          imagePullPolicy: Never
+
+          command:
+            - python
+            - -u
+            - -m
+            - app.kafka_consumer
+
+          envFrom:
+            - secretRef:
+                name: finassist-secrets
+
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: finassist-k8s-database
+                  key: DATABASE_URL
+
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "finassist-kafka-service:9092"

@@ -1,0 +1,27 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: finassist-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: finassist-redis
+  template:
+    metadata:
+      labels:
+        app: finassist-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 5
+            periodSeconds: 10

@@ -22,3 +22,20 @@ kafka-original.properties
 
 # Local Kafka backup
 kafka-backup/
+# Database files and backups
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.backup
+*.sql
+*.bak
+
+# Credentials and private keys
+*.pem
+*.key
+credentials.json
+service-account*.json
+
+# Local Kubernetes and Kafka backups
+k8s/archive/

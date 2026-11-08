@@ -1,18 +1,28 @@
+
 from sqlalchemy.orm import Session
 
 from app.models import Transaction
 
+
 def get_all_transactions(db: Session):
     return db.query(Transaction).all()
 
-def get_transactions_by_user_id(db: Session, user_id: int):
+
+def get_transactions_by_user_id(
+    db: Session,
+    user_id: int
+):
     return (
         db.query(Transaction)
         .filter(Transaction.user_id == user_id)
         .all()
     )
 
-def get_transaction_by_id(db: Session, transaction_id: int):
+
+def get_transaction_by_id(
+    db: Session,
+    transaction_id: int
+):
     return db.get(Transaction, transaction_id)
 
 
@@ -21,13 +31,15 @@ def create_transaction(
     description: str,
     amount,
     category: str,
-    user_id: int
+    user_id: int,
+    transaction_type: str = "expense"
 ):
     new_transaction = Transaction(
         description=description,
         amount=amount,
         category=category,
-        user_id=user_id
+        user_id=user_id,
+        transaction_type=transaction_type
     )
 
     db.add(new_transaction)
@@ -43,12 +55,14 @@ def update_transaction(
     description: str,
     amount,
     category: str,
-    user_id: int
+    user_id: int,
+    transaction_type: str = "expense"
 ):
     transaction.description = description
     transaction.amount = amount
     transaction.category = category
     transaction.user_id = user_id
+    transaction.transaction_type = transaction_type
 
     db.commit()
     db.refresh(transaction)
@@ -64,7 +78,10 @@ def delete_transaction(
     db.commit()
 
 
-def get_transactions_by_user(db: Session, user_id: int):
+def get_transactions_by_user(
+    db: Session,
+    user_id: int
+):
     return (
         db.query(Transaction)
         .filter(Transaction.user_id == user_id)

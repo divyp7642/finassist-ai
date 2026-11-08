@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: finassist-api
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: finassist-api
+
+  template:
+    metadata:
+      labels:
+        app: finassist-api
+
+    spec:
+      containers:
+        - name: finassist-api
+          image: finassist-ai:latest
+          imagePullPolicy: Never
+          envFrom:
+            - secretRef:
+                name: finassist-secrets
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: finassist-k8s-database
+                  key: DATABASE_URL
+            - name: REDIS_HOST
+              value: "finassist-redis-service"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "finassist-kafka-service:9092"
+          ports:
+            - containerPort: 8000
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

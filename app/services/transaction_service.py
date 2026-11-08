@@ -23,7 +23,8 @@ def create_transaction(
     description: str,
     amount,
     category: str,
-    user_id: int
+    user_id: int,
+    transaction_type: str = "expense"
 ):
     # Check whether the user exists
     user = user_repository.get_user_by_id(
@@ -40,7 +41,8 @@ def create_transaction(
         description=description,
         amount=amount,
         category=category,
-        user_id=user_id
+        user_id=user_id,
+        transaction_type=transaction_type
     )
 
 
@@ -50,7 +52,8 @@ def update_transaction(
     description: str,
     amount,
     category: str,
-    user_id: int
+    user_id: int,
+    transaction_type: str = "expense"
 ):
     # Check whether the transaction exists
     transaction = transaction_repository.get_transaction_by_id(
@@ -77,7 +80,8 @@ def update_transaction(
         description=description,
         amount=amount,
         category=category,
-        user_id=user_id
+        user_id=user_id,
+        transaction_type=transaction_type
     )
 
     return updated_transaction, None
@@ -105,7 +109,10 @@ def delete_transaction(
     return True
 
 
-def get_transactions_by_user(db: Session, user_id: int):
+def get_transactions_by_user(
+    db: Session,
+    user_id: int
+):
     return transaction_repository.get_transactions_by_user(
         db=db,
         user_id=user_id

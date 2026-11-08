@@ -1,7 +1,15 @@
 
+from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import ForeignKey, Numeric, String, UniqueConstraint
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Numeric,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -51,6 +59,24 @@ class Transaction(Base):
     category: Mapped[str] = mapped_column(
         String(50),
         nullable=False
+    )
+
+    # Distinguishes income from expenses.
+    transaction_type: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="expense",
+        server_default="expense"
+    )
+
+    # Automatically records the creation timestamp in UTC.
+    # Older transactions may have NULL timestamps because
+    # their original creation dates were not recorded.
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now()
     )
 
     user_id: Mapped[int] = mapped_column(

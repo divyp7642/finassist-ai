@@ -34,3 +34,18 @@ README.md
 # Docker Compose files
 docker-compose*.yml
 compose*.yaml
+
+# Database files and backups
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.backup
+*.sql
+*.bak
+
+# Local credentials
+*.pem
+*.key
+credentials.json
+service-account*.json
