@@ -1,16 +1,15 @@
-from fastapi.testclient import TestClient
-from app.main import app
 
-from unittest.mock import patch
-from unittest.mock import ANY
+from decimal import Decimal
 from types import SimpleNamespace
-
-from app.integrations.openai_client import OpenAIServiceError
-from redis.exceptions import RedisError
+from unittest.mock import ANY, patch
 
 import pytest
+from fastapi.testclient import TestClient
+from redis.exceptions import RedisError
+
 from app.dependencies import get_current_user_id
-from types import SimpleNamespace
+from app.integrations.openai_client import OpenAIServiceError
+from app.main import app
 
 
 client = TestClient(app)
@@ -29,11 +28,9 @@ def test_homepage():
     response = client.get("/")
 
     assert response.status_code == 200
-
     assert response.json() == {
         "message": "Welcome to FinAssist AI"
     }
-
 
 
 def test_transaction_not_found():
@@ -90,7 +87,6 @@ def test_invalid_transaction_id():
         response = client.get("/transactions/abc")
 
         assert response.status_code == 422
-
         mock_get_transaction.assert_not_called()
 
 
@@ -119,36 +115,41 @@ def test_create_transaction_success():
     }
 
     fake_transaction = SimpleNamespace(
-    id=20,
-    description="Groceries",
-    amount=50,
-    category="Food",
-    user_id=1
+        id=20,
+        description="Groceries",
+        amount=50,
+        category="Food",
+        user_id=1,
+        transaction_type="expense",
+        created_at=None
     )
 
     with patch(
         "app.routers.transactions.transaction_service.create_transaction",
         return_value=fake_transaction
     ), patch(
-    "app.routers.transactions.redis_client.delete"
+        "app.routers.transactions.redis_client.delete"
     ) as mock_redis_delete, patch(
-    "app.routers.transactions.publish_transaction_created"
+        "app.routers.transactions.publish_transaction_created"
     ) as mock_kafka_publish:
+
         response = client.post(
             "/transactions",
             json=transaction_data
         )
 
         mock_redis_delete.assert_called_once_with(
-         "transactions:user:1"
+            "transactions:user:1"
         )
 
         mock_kafka_publish.assert_called_once_with({
-        "transaction_id": 20,
-        "user_id": 1,
-        "description": "Groceries",
-        "amount": 50.0,
-        "category": "Food"
+            "transaction_id": 20,
+            "user_id": 1,
+            "description": "Groceries",
+            "amount": 50.0,
+            "category": "Food",
+            "transaction_type": "expense",
+            "created_at": None
         })
 
     assert response.status_code == 201
@@ -176,7 +177,7 @@ def test_create_transaction_other_user_forbidden():
         mock_create.assert_not_called()
 
     assert response.json() == {
-    "detail": "You cannot create transactions for another user"
+        "detail": "You cannot create transactions for another user"
     }
 
 
@@ -316,7 +317,8 @@ def test_update_transaction_success():
         description="Groceries",
         amount=50,
         category="Food",
-        user_id=1
+        user_id=1,
+        transaction_type="expense"
     )
 
     updated_transaction = SimpleNamespace(
@@ -324,7 +326,8 @@ def test_update_transaction_success():
         description="Groceries",
         amount=75,
         category="Food",
-        user_id=1
+        user_id=1,
+        transaction_type="expense"
     )
 
     with patch(
@@ -348,9 +351,10 @@ def test_update_transaction_success():
             db=ANY,
             transaction_id=10,
             description="Groceries",
-            amount=75,
+            amount=Decimal("75"),
             category="Food",
-            user_id=1
+            user_id=1,
+            transaction_type="expense"
         )
 
         mock_redis_delete.assert_called_once_with(
@@ -369,11 +373,7 @@ def test_user_not_found():
 
         response = client.get("/users/1")
 
-        print("STATUS CODE:", response.status_code)
-        print("RESPONSE BODY:", response.json())
-
-        # Temporarily disabled for debugging
-        # mock_get_user.assert_called_once_with(ANY, 1)
+        mock_get_user.assert_called_once_with(ANY, 1)
 
     assert response.status_code == 404
     assert response.json() == {
@@ -464,7 +464,6 @@ def test_create_user_success():
         )
 
     assert response.status_code == 201
-
     assert response.json() == {
         "id": 5,
         "name": "John",
@@ -564,7 +563,6 @@ def test_update_user_success():
     assert response.json() == fake_user
 
 
-
 def test_delete_user_not_found():
     with patch(
         "app.routers.users.user_service.delete_user",
@@ -631,7 +629,6 @@ def test_ai_spending_analysis_success():
     assert response.json() == fake_analysis
 
 
-
 def test_ai_user_not_found():
     with patch(
         "app.routers.ai.ai_service.analyze_spending",
@@ -651,7 +648,6 @@ def test_ai_user_not_found():
     assert response.json() == {
         "detail": "User not found"
     }
-
 
 
 def test_ai_no_transactions():
@@ -709,7 +705,9 @@ def test_create_transaction_redis_failure():
         description="Groceries",
         amount=50,
         category="Food",
-        user_id=1
+        user_id=1,
+        transaction_type="expense",
+        created_at=None
     )
 
     with patch(
@@ -743,7 +741,9 @@ def test_create_transaction_kafka_failure():
         description="Groceries",
         amount=50,
         category="Food",
-        user_id=1
+        user_id=1,
+        transaction_type="expense",
+        created_at=None
     )
 
     with patch(
