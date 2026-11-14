@@ -5,12 +5,15 @@ venv/
 
 # Python cache
 __pycache__/
+**/__pycache__/
 *.pyc
 .pytest_cache/
 
 # Environment variables and secrets
 .env
 .env.*
+**/.env
+**/.env.*
 !.env.example
 
 # Git files
@@ -47,5 +50,15 @@ compose*.yaml
 # Local credentials
 *.pem
 *.key
+**/*.pem
+**/*.key
 credentials.json
 service-account*.json
+
+# Frontend files (built separately)
+frontend/
+node_modules/
+**/node_modules/
+
+# Kubernetes manifests
+k8s/
